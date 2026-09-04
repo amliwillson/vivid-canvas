@@ -284,7 +284,6 @@
       color: var(--secondary-neon);
     }
 
-    /* 18+ Warning Modal Styles */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -370,11 +369,6 @@
       background: transparent;
       border: 1px solid var(--text-muted);
       color: var(--text-muted);
-    }
-
-    .btn-cancel:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: #fff;
     }
 
     footer {
@@ -468,9 +462,8 @@
 
   <div class="container">
 
-    <!-- Secret Lock Owner Upload Panel -->
     <div class="uploader-card" id="ownerPanel">
-      <h3><i class="fa-solid fa-unlock"></i> Owner Upload Panel</h3>
+      <h3><i class="fa-solid fa-unlock"></i> Owner Upload Panel (Global)</h3>
       <div class="uploader-form">
         <input type="text" id="artTitle" placeholder="Art Title">
         <input type="text" id="artUrl" placeholder="Direct Image Link (https://...)">
@@ -478,22 +471,18 @@
           <option value="sfw">SFW Gallery</option>
           <option value="nsfw">NSFW Gallery</option>
         </select>
-        <button class="btn" onclick="addNewArt()">Post Art</button>
-        <button class="btn" style="border-color: var(--accent-pink); color: var(--accent-pink);" onclick="clearCorruptedPosts()">Reset All Data</button>
+        <button class="btn" id="postBtn" onclick="addNewArt()">Post Art</button>
       </div>
     </div>
 
-    <!-- SFW Gallery Section -->
     <div id="sfw" class="section active">
       <div class="gallery-grid" id="sfwGrid"></div>
     </div>
 
-    <!-- NSFW Gallery Section -->
     <div id="nsfw" class="section">
       <div class="gallery-grid" id="nsfwGrid"></div>
     </div>
 
-    <!-- About Us Section -->
     <div id="about" class="section">
       <div class="about-card">
         <h2>About Vivid Canvas</h2>
@@ -507,7 +496,6 @@
 
   </div>
 
-  <!-- 18+ Warning Modal Popup -->
   <div class="modal-overlay" id="nsfwWarningModal">
     <div class="warning-card">
       <button class="close-modal-btn" onclick="cancelNsfwAccess()"><i class="fa-solid fa-xmark"></i></button>
@@ -533,16 +521,18 @@
   </footer>
 
   <script>
+    const BIN_ID = "66d82046e41b4d34e428bc41"; 
+    const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
     const SECRET_PIN = "XXX103";
     let isNsfwVerified = false;
+    let globalArtList = [];
 
     document.addEventListener("DOMContentLoaded", function () {
-      loadSavedArt();
+      loadGlobalArt();
     });
 
     function toggleMobileNav() {
-      const menu = document.getElementById('navMenu');
-      menu.classList.toggle('show');
+      document.getElementById('navMenu').classList.toggle('show');
     }
 
     function handleSearchKey(event) {
@@ -600,6 +590,86 @@
       document.getElementById('navMenu').classList.remove('show');
     }
 
+    function handleImageError(img) {
+      img.onerror = null; 
+      img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="320" viewBox="0 0 400 320"><rect width="100%" height="100%" fill="%23181c2b"/><text x="50%" y="50%" fill="%239ca3af" font-family="sans-serif" font-size="16" text-anchor="middle">Image Failed To Load</text></svg>';
+    }
+
+    async function loadGlobalArt() {
+      try {
+        const res = await fetch(`${API_URL}/latest`);
+        const data = await res.json();
+        
+        document.getElementById('sfwGrid').innerHTML = '';
+        document.getElementById('nsfwGrid').innerHTML = '';
+
+        if (data.record && Array.isArray(data.record)) {
+          globalArtList = data.record;
+          globalArtList.forEach(art => renderCard(art));
+        }
+      } catch (e) {
+        console.error("Load error", e);
+      }
+    }
+
+    async function addNewArt() {
+      const title = document.getElementById('artTitle').value.trim();
+      const url = document.getElementById('artUrl').value.trim();
+      const category = document.getElementById('artCategory').value;
+      const postBtn = document.getElementById('postBtn');
+
+      if(!title || !url) {
+        alert("Please enter title and direct web image URL");
+        return;
+      }
+
+      postBtn.disabled = true;
+      postBtn.innerText = "Posting Globally...";
+
+      const newArt = { title, url, category, id: Date.now() };
+      const updatedList = [newArt, ...globalArtList];
+
+      try {
+        const response = await fetch(API_URL, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': '$2a$10$wE47P.fM23e51tAUpwEsh.XyBvhfR.22LqUoDqA.vD2KqWnIInJm2'
+          },
+          body: JSON.stringify(updatedList)
+        });
+
+        if (response.ok) {
+          document.getElementById('artTitle').value = '';
+          document.getElementById('artUrl').value = '';
+          alert("Artwork Posted Globally!");
+          loadGlobalArt();
+        } else {
+          alert("Posting error! Try again.");
+        }
+      } catch (err) {
+        alert("Network Error!");
+      } finally {
+        postBtn.disabled = false;
+        postBtn.innerText = "Post Art";
+      }
+    }
+
+    function renderCard(art) {
+      const cardHtml = `
+        <div class="art-card">
+          <img src="${art.url}" class="art-img" alt="${art.title}" onerror="handleImageError(this)" loading="lazy">
+          <div class="art-info">
+            <h4>${art.title}</h4>
+            <button class="like-btn" onclick="toggleLike(this)"><i class="fa-regular fa-heart"></i> <span>0</span></button>
+          </div>
+        </div>
+      `;
+      const gridId = art.category === 'sfw' ? 'sfwGrid' : 'nsfwGrid';
+      const container = document.getElementById(gridId);
+      if(container) container.insertAdjacentHTML('afterbegin', cardHtml);
+    }
+
     function toggleLike(btn) {
       const icon = btn.querySelector('i');
       const countSpan = btn.querySelector('span');
@@ -610,78 +680,6 @@
       } else {
         icon.className = 'fa-regular fa-heart';
         countSpan.innerText = count - 1;
-      }
-    }
-
-    function addNewArt() {
-      const title = document.getElementById('artTitle').value.trim();
-      const url = document.getElementById('artUrl').value.trim();
-      const category = document.getElementById('artCategory').value;
-
-      if(!title || !url) {
-        alert("Please enter title and direct web image URL (e.g. Imgur / PostImages link)");
-        return;
-      }
-
-      const artItem = { title, url, category };
-      saveToStorage(artItem);
-      renderCard(artItem);
-
-      document.getElementById('artTitle').value = '';
-      document.getElementById('artUrl').value = '';
-      alert("Artwork Posted!");
-    }
-
-    // Safe Image Handling to Prevent Freeze
-    function handleImageError(img) {
-      img.onerror = null; 
-      img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="320" viewBox="0 0 400 320"><rect width="100%" height="100%" fill="%23181c2b"/><text x="50%" y="50%" fill="%239ca3af" font-family="sans-serif" font-size="16" text-anchor="middle">Image Failed To Load</text></svg>';
-    }
-
-    function renderCard(art) {
-      try {
-        const cardHtml = `
-          <div class="art-card">
-            <img src="${art.url}" class="art-img" alt="${art.title}" onerror="handleImageError(this)" loading="lazy">
-            <div class="art-info">
-              <h4>${art.title}</h4>
-              <button class="like-btn" onclick="toggleLike(this)"><i class="fa-regular fa-heart"></i> <span>0</span></button>
-            </div>
-          </div>
-        `;
-        const gridId = art.category === 'sfw' ? 'sfwGrid' : 'nsfwGrid';
-        const container = document.getElementById(gridId);
-        if(container) container.insertAdjacentHTML('afterbegin', cardHtml);
-      } catch (e) {
-        console.error("Error rendering post:", e);
-      }
-    }
-
-    function saveToStorage(art) {
-      try {
-        let artworks = JSON.parse(localStorage.getItem('vivid_arts') || '[]');
-        artworks.unshift(art);
-        localStorage.setItem('vivid_arts', JSON.stringify(artworks));
-      } catch (e) {
-        console.error("Storage error:", e);
-      }
-    }
-
-    function loadSavedArt() {
-      try {
-        let storedArtworks = JSON.parse(localStorage.getItem('vivid_arts') || '[]');
-        storedArtworks.forEach(art => {
-          if (art && art.url) renderCard(art);
-        });
-      } catch (e) {
-        console.error("Error loading saved posts:", e);
-      }
-    }
-
-    function clearCorruptedPosts() {
-      if(confirm("Warna saara browser cache clear ho jayega, kya aap saari posts clear karna chahte hain?")) {
-        localStorage.removeItem('vivid_arts');
-        location.reload();
       }
     }
   </script>

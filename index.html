@@ -521,14 +521,11 @@
   </footer>
 
   <script>
-    const BIN_ID = "66d82046e41b4d34e428bc41"; 
-    const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
     const SECRET_PIN = "XXX103";
     let isNsfwVerified = false;
-    let globalArtList = [];
 
     document.addEventListener("DOMContentLoaded", function () {
-      loadGlobalArt();
+      loadArtworks();
     });
 
     function toggleMobileNav() {
@@ -595,64 +592,46 @@
       img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="320" viewBox="0 0 400 320"><rect width="100%" height="100%" fill="%23181c2b"/><text x="50%" y="50%" fill="%239ca3af" font-family="sans-serif" font-size="16" text-anchor="middle">Image Failed To Load</text></svg>';
     }
 
-    async function loadGlobalArt() {
+    function getLocalArt() {
       try {
-        const res = await fetch(`${API_URL}/latest`);
-        const data = await res.json();
-        
-        document.getElementById('sfwGrid').innerHTML = '';
-        document.getElementById('nsfwGrid').innerHTML = '';
-
-        if (data.record && Array.isArray(data.record)) {
-          globalArtList = data.record;
-          globalArtList.forEach(art => renderCard(art));
-        }
+        return JSON.parse(localStorage.getItem('vc_artworks') || '[]');
       } catch (e) {
-        console.error("Load error", e);
+        return [];
       }
     }
 
-    async function addNewArt() {
+    function saveLocalArt(data) {
+      localStorage.setItem('vc_artworks', JSON.stringify(data));
+    }
+
+    function loadArtworks() {
+      document.getElementById('sfwGrid').innerHTML = '';
+      document.getElementById('nsfwGrid').innerHTML = '';
+      
+      const list = getLocalArt();
+      list.forEach(art => renderCard(art));
+    }
+
+    function addNewArt() {
       const title = document.getElementById('artTitle').value.trim();
       const url = document.getElementById('artUrl').value.trim();
       const category = document.getElementById('artCategory').value;
-      const postBtn = document.getElementById('postBtn');
 
-      if(!title || !url) {
-        alert("Please enter title and direct web image URL");
+      if (!title || !url) {
+        alert("Please enter title and direct web image URL!");
         return;
       }
 
-      postBtn.disabled = true;
-      postBtn.innerText = "Posting Globally...";
+      const newArt = { id: Date.now(), title, url, category };
+      const currentArt = getLocalArt();
+      currentArt.unshift(newArt);
+      saveLocalArt(currentArt);
 
-      const newArt = { title, url, category, id: Date.now() };
-      const updatedList = [newArt, ...globalArtList];
+      renderCard(newArt);
 
-      try {
-        const response = await fetch(API_URL, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Master-Key': '$2a$10$wE47P.fM23e51tAUpwEsh.XyBvhfR.22LqUoDqA.vD2KqWnIInJm2'
-          },
-          body: JSON.stringify(updatedList)
-        });
-
-        if (response.ok) {
-          document.getElementById('artTitle').value = '';
-          document.getElementById('artUrl').value = '';
-          alert("Artwork Posted Globally!");
-          loadGlobalArt();
-        } else {
-          alert("Posting error! Try again.");
-        }
-      } catch (err) {
-        alert("Network Error!");
-      } finally {
-        postBtn.disabled = false;
-        postBtn.innerText = "Post Art";
-      }
+      document.getElementById('artTitle').value = '';
+      document.getElementById('artUrl').value = '';
+      alert("Artwork Posted Successfully!");
     }
 
     function renderCard(art) {
@@ -667,7 +646,7 @@
       `;
       const gridId = art.category === 'sfw' ? 'sfwGrid' : 'nsfwGrid';
       const container = document.getElementById(gridId);
-      if(container) container.insertAdjacentHTML('afterbegin', cardHtml);
+      if (container) container.insertAdjacentHTML('afterbegin', cardHtml);
     }
 
     function toggleLike(btn) {

@@ -574,6 +574,23 @@
     let isOwnerUnlocked = false;
     let isNsfwVerified = false;
 
+    // Deterministic Random Likes Generator (1k+ Base per Post)
+    function generateBaseLikes(postId) {
+      let hash = 0;
+      for (let i = 0; i < postId.length; i++) {
+        hash = postId.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const positiveHash = Math.abs(hash);
+      return 1000 + (positiveHash % 8800); // 1,000 se 9,799 ke beech random base likes
+    }
+
+    function formatLikes(count) {
+      if (count >= 1000) {
+        return (count / 1000).toFixed(1) + 'k';
+      }
+      return count.toString();
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
       loadGlobalArt();
     });
@@ -695,9 +712,12 @@
       }
     }
 
-    // Render Card UI with Delete Control
+    // Render Card UI with Delete Control & Automatic 1k+ Random Base Likes
     function renderCard(postId, art) {
       const deleteDisplayStyle = isOwnerUnlocked ? 'inline-block' : 'none';
+      const baseLikes = generateBaseLikes(postId);
+      const displayLikes = formatLikes(baseLikes);
+
       const cardHtml = `
         <div class="art-card" id="card-${postId}">
           <img src="${art.url}" class="art-img" alt="${art.title}" onerror="handleImageError(this)" loading="lazy">
@@ -705,7 +725,7 @@
             <h4>${art.title}</h4>
             <div class="action-group">
               <button class="delete-btn" style="display: ${deleteDisplayStyle};" onclick="deleteArt('${postId}')" title="Delete Post"><i class="fa-solid fa-trash"></i></button>
-              <button class="like-btn" onclick="toggleLike(this)"><i class="fa-regular fa-heart"></i> <span>0</span></button>
+              <button class="like-btn" data-base="${baseLikes}" onclick="toggleLike(this)"><i class="fa-regular fa-heart"></i> <span>${displayLikes}</span></button>
             </div>
           </div>
         </div>
@@ -733,14 +753,18 @@
     function toggleLike(btn) {
       const icon = btn.querySelector('i');
       const countSpan = btn.querySelector('span');
-      let count = parseInt(countSpan.innerText);
+      let baseLikes = parseInt(btn.getAttribute('data-base'));
+      
       if (icon.classList.contains('fa-regular')) {
         icon.className = 'fa-solid fa-heart';
-        countSpan.innerText = count + 1;
+        baseLikes += 1;
       } else {
         icon.className = 'fa-regular fa-heart';
-        countSpan.innerText = count - 1;
+        baseLikes -= 1;
       }
+      
+      btn.setAttribute('data-base', baseLikes);
+      countSpan.innerText = formatLikes(baseLikes);
     }
   </script>
 </body>

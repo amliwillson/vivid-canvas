@@ -651,14 +651,14 @@
     let isOwnerUnlocked = false;
     let isNsfwVerified = false;
 
-    // Likes Generator - Purane exact likes algorithm
+    // Likes Generator - Dono galleries (SFW & NSFW) ke liye universal likes algorithm
     function generateBaseLikes(postId) {
-      if (!postId) return 1000;
+      if (!postId) return 1450;
       let hash = 0;
       for (let i = 0; i < postId.length; i++) {
         hash = postId.charCodeAt(i) + ((hash << 5) - hash);
       }
-      return 1000 + (Math.abs(hash) % 8800);
+      return 1200 + (Math.abs(hash) % 8500); // 1,200 se 9,700 ke beech random likes
     }
 
     function formatNumber(count) {
@@ -806,7 +806,7 @@
     }
 
     function renderCard(postId, art) {
-      if (!art || !art.url) return; // Guard clause against broken objects
+      if (!art || !art.url) return;
 
       const deleteDisplayStyle = isOwnerUnlocked ? 'inline-block' : 'none';
       const baseLikes = generateBaseLikes(postId);
@@ -818,7 +818,10 @@
 
       const count = art.ratingCount || 0;
       const sum = art.ratingSum || 0;
-      const avgRating = count > 0 ? (sum / count).toFixed(1) : "4.8";
+      const avgRating = count > 0 ? (sum / count).toFixed(1) : "4.9";
+
+      // Category fallback check (agar category missing ho ya nsfw ho)
+      const postCategory = (art.category === 'nsfw') ? 'nsfw' : 'sfw';
 
       const cardHtml = `
         <div class="art-card" id="card-${postId}">
@@ -849,16 +852,19 @@
           </div>
         </div>
       `;
-      const category = art.category === 'nsfw' ? 'nsfw' : 'sfw';
-      const gridId = category === 'sfw' ? 'sfwGrid' : 'nsfwGrid';
+
+      const gridId = postCategory === 'sfw' ? 'sfwGrid' : 'nsfwGrid';
       const container = document.getElementById(gridId);
       if (container) container.insertAdjacentHTML('beforeend', cardHtml);
     }
 
     function loadGlobalArt() {
       db.ref('posts').on('value', function(snapshot) {
-        document.getElementById('sfwGrid').innerHTML = '';
-        document.getElementById('nsfwGrid').innerHTML = '';
+        const sfwContainer = document.getElementById('sfwGrid');
+        const nsfwContainer = document.getElementById('nsfwGrid');
+        
+        if(sfwContainer) sfwContainer.innerHTML = '';
+        if(nsfwContainer) nsfwContainer.innerHTML = '';
         
         const data = snapshot.val();
         if (data) {

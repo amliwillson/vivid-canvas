@@ -669,17 +669,18 @@
         url: url,
         category: category,
         timestamp: Date.now()
-      }, function(error) {
+      })
+      .then(() => {
         postBtn.disabled = false;
         postBtn.innerText = "Post Art";
-        
-        if (error) {
-          alert("Posting failed! Try again.");
-        } else {
-          document.getElementById('artTitle').value = '';
-          document.getElementById('artUrl').value = '';
-          alert("Artwork Posted Globally!");
-        }
+        document.getElementById('artTitle').value = '';
+        document.getElementById('artUrl').value = '';
+        alert("SUCCESS: Post Firebase Par Permanently Save Ho Gai!");
+      })
+      .catch((error) => {
+        postBtn.disabled = false;
+        postBtn.innerText = "Post Art";
+        alert("FIREBASE ERROR: " + error.message);
       });
     }
 
